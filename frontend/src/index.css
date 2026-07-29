@@ -1,0 +1,79 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --background: 210 20% 98%;
+  --foreground: 210 10% 20%;
+  --primary: 220 70% 55%;
+  --primary-foreground: 0 0% 100%;
+  --secondary: 210 10% 90%;
+  --secondary-foreground: 210 10% 20%;
+  --muted: 210 10% 95%;
+  --muted-foreground: 210 10% 40%;
+  --accent: 220 70% 55%;
+  --accent-foreground: 0 0% 100%;
+  --border: 210 20% 90%;
+  --input: 210 20% 90%;
+  --ring: 220 70% 55%;
+}
+
+.dark {
+  --background: 210 12% 6%;
+  --foreground: 0 0% 93%;
+  --primary: 220 70% 60%;
+  --primary-foreground: 0 0% 100%;
+  --secondary: 210 12% 20%;
+  --secondary-foreground: 0 0% 100%;
+  --muted: 210 12% 15%;
+  --muted-foreground: 210 10% 60%;
+  --accent: 220 70% 60%;
+  --accent-foreground: 0 0% 100%;
+  --border: 210 12% 20%;
+  --input: 210 12% 20%;
+  --ring: 220 70% 60%;
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: hsl(var(--muted));
+}
+
+::-webkit-scrollbar-thumb {
+  background: hsl(var(--primary));
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: hsl(var(--accent));
+}
+
+/* Focus styles for accessibility */
+:focus {
+  outline: 2px solid hsl(var(--ring));
+  outline-offset: 2px;
+}
+
+/* High contrast mode support */
+@media (prefers-contrast: high) {
+  :root {
+    --background: 0 0% 100%;
+    --foreground: 0 0% 0%;
+    --primary: 0 0% 0%;
+    --primary-foreground: 0 0% 100%;
+  }
+}
+
+/* Reduced motion support */
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
