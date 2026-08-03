@@ -202,7 +202,8 @@ export const SignToText: React.FC<SignToTextProps> = ({ selectedLanguage, isDark
         bodyData = { landmarks: flatLandmarks };
       }
 
-      fetch('http://localhost:8000/api/ml/isl/isl-recognize', {
+      const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+      fetch(`${API_URL}/api/ml/isl/isl-recognize`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(bodyData)
@@ -235,7 +236,8 @@ export const SignToText: React.FC<SignToTextProps> = ({ selectedLanguage, isDark
       const newRaw = prev ? `${prev} ${sign}` : sign;
       
       // Call backend AI grammar formation API
-      fetch('http://localhost:8000/api/ml/isl/grammar-correct', {
+      const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+      fetch(`${API_URL}/api/ml/isl/grammar-correct`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ raw_tokens: newRaw, language: selectedLanguage })
