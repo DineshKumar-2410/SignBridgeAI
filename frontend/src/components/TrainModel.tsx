@@ -110,9 +110,9 @@ export const TrainModel: React.FC<TrainModelProps> = ({ isDarkMode }) => {
 
             // If recording, save the frame data
             if (isRecordingRef.current) {
-              const flatLandmarks = [];
+              const flatLandmarks: number[][] = [];
               for (const hand of results.multiHandLandmarks) {
-                const handPoints = [];
+                const handPoints: number[] = [];
                 for (const lm of hand) {
                   handPoints.push(lm.x, lm.y, lm.z || 0);
                 }
