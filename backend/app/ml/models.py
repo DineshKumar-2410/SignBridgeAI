@@ -97,7 +97,7 @@ async def recognize_isl(input: ISLInput):
                 pred = clf.predict(X_input)[0]
                 prob = np.max(clf.predict_proba(X_input))
                 
-                if prob < 0.65:
+                if prob < 0.45:
                     recognized_text = "Unknown"
                 elif le is not None and isinstance(pred, (int, np.integer)):
                     recognized_text = le.inverse_transform([pred])[0]
