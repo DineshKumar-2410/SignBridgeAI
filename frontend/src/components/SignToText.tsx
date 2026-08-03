@@ -7,8 +7,8 @@ interface SignToTextProps {
   onAddHistory: (item: HistoryItem) => void;
 }
 
-const ALPHABETS_LIST = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('');
-const SAMPLE_SIGNS = ['HELLO', 'THANK YOU', 'PLEASE', 'WELCOME', 'HELP', 'GOOD MORNING', 'INDIAN SIGN LANGUAGE', 'NAMASTE'];
+const ALPHABETS_LIST = ['A', 'B', 'C', 'D'];
+const SAMPLE_SIGNS: string[] = [];
 
 export const SignToText: React.FC<SignToTextProps> = ({ selectedLanguage, isDarkMode, onAddHistory }) => {
   const [isCameraActive, setIsCameraActive] = useState<boolean>(true);
@@ -16,11 +16,13 @@ export const SignToText: React.FC<SignToTextProps> = ({ selectedLanguage, isDark
   const [autoAppend, setAutoAppend] = useState<boolean>(true);
   const [cameraError, setCameraError] = useState<string | null>(null);
   const [isMediaPipeActive, setIsMediaPipeActive] = useState<boolean>(false);
-  const [currentGesture, setCurrentGesture] = useState<string>('A');
-  const [detectedSentence, setDetectedSentence] = useState<string>('HELLO WELCOME TO SIGNBRIDGE AI');
-  const [confidence, setConfidence] = useState<number>(96.4);
+  const [currentGesture, setCurrentGesture] = useState<string>('');
+  const [detectedSentence, setDetectedSentence] = useState<string>('');
+  const [confidence, setConfidence] = useState<number>(0);
   const [isSpeaking, setIsSpeaking] = useState<boolean>(false);
-  const [aiCorrected, setAiCorrected] = useState<string>('Hello! Welcome to SignBridge AI.');
+  const [aiCorrected, setAiCorrected] = useState<string>('');
+  const [isModelLoading, setIsModelLoading] = useState<boolean>(true);
+  const [modelReloadKey, setModelReloadKey] = useState<number>(0);
   
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -30,7 +32,7 @@ export const SignToText: React.FC<SignToTextProps> = ({ selectedLanguage, isDark
 
   // Auto-print recognized gesture to output sentence box when gesture is held
   useEffect(() => {
-    if (!autoAppend || !currentGesture) return;
+    if (!autoAppend || !currentGesture || currentGesture === 'Unknown') return;
 
     const letter = currentGesture.split(' ')[0];
     if (letter !== lastPrintedSignRef.current) {
@@ -53,13 +55,14 @@ export const SignToText: React.FC<SignToTextProps> = ({ selectedLanguage, isDark
     let handsInstance: any = null;
 
     if (isCameraActive && useWebcam) {
+      setIsModelLoading(true);
       setCameraError(null);
       
       const win = window as any;
       if (win.Hands && videoRef.current && canvasRef.current) {
         try {
           handsInstance = new win.Hands({
-            locateFile: (file: string) => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`
+            locateFile: (file: string) => `/mediapipe/hands/${file}`
           });
 
           handsInstance.setOptions({
@@ -70,6 +73,7 @@ export const SignToText: React.FC<SignToTextProps> = ({ selectedLanguage, isDark
           });
 
           handsInstance.onResults((results: any) => {
+            setIsModelLoading(false);
             const video = videoRef.current;
             const canvas = canvasRef.current;
             if (!canvas || !video) return;
@@ -128,6 +132,8 @@ export const SignToText: React.FC<SignToTextProps> = ({ selectedLanguage, isDark
             } else {
               setIsMediaPipeActive(false);
               latestLandmarksRef.current = null;
+              setCurrentGesture('');
+              setConfidence(0);
             }
             ctx.restore();
           });
@@ -169,13 +175,18 @@ export const SignToText: React.FC<SignToTextProps> = ({ selectedLanguage, isDark
         try { handsInstance.close(); } catch {}
       }
     };
-  }, [isCameraActive, useWebcam]);
+  }, [isCameraActive, useWebcam, modelReloadKey]);
 
   // Polling interval to send landmarks to backend for prediction
   useEffect(() => {
     if (!isCameraActive || (!useWebcam && !latestLandmarksRef.current)) return;
 
     const interval = setInterval(() => {
+      if (useWebcam && !latestLandmarksRef.current) {
+        // Hand is out of frame, do not send to backend
+        return;
+      }
+
       let bodyData: any = { image_base64: 'frame_placeholder' };
       
       if (useWebcam && latestLandmarksRef.current) {
@@ -198,9 +209,12 @@ export const SignToText: React.FC<SignToTextProps> = ({ selectedLanguage, isDark
       })
         .then((res) => res.json())
         .then((data) => {
-          if (data.recognized_text !== undefined) {
+          if (data.recognized_text !== undefined && data.recognized_text !== "") {
             setCurrentGesture(data.recognized_text);
             setConfidence(data.confidence);
+          } else if (data.recognized_text === "") {
+             setCurrentGesture("Unknown");
+             setConfidence(data.confidence);
           }
         })
         .catch(() => {
@@ -360,22 +374,43 @@ export const SignToText: React.FC<SignToTextProps> = ({ selectedLanguage, isDark
                   </div>
                 )}
 
-                {/* Live Recognized Alphabet / Sign Badge */}
-                <div className="absolute top-4 left-4 px-4 py-2 bg-slate-900/90 backdrop-blur-md rounded-xl border border-indigo-500/40 shadow-lg flex items-center space-x-3 z-20">
-                  <span className="text-2xl">🤟</span>
-                  <div>
-                    <div className="text-[10px] uppercase tracking-wider text-slate-400 font-bold">Detected ISL Sign / Alphabet</div>
-                    <div className="text-xl font-black text-indigo-400">{currentGesture}</div>
-                  </div>
+                {/* Top-Left Overlay: Loading Model OR Detected Sign */}
+                <div className="absolute top-4 left-4 z-20 flex flex-col items-start space-y-2">
+                  {isModelLoading && useWebcam ? (
+                    <div className="bg-amber-500/90 text-white px-4 py-2 rounded-xl text-xs font-bold animate-pulse flex items-center shadow-lg backdrop-blur-md border border-amber-400">
+                      <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+                      Loading AI Model...
+                    </div>
+                  ) : (
+                    <div className="px-4 py-2 bg-slate-900/90 backdrop-blur-md rounded-xl border border-indigo-500/40 shadow-lg flex items-center space-x-3">
+                      <span className="text-2xl">🤟</span>
+                      <div>
+                        <div className="text-[10px] uppercase tracking-wider text-slate-400 font-bold">Detected ISL Sign / Alphabet</div>
+                        <div className="text-xl font-black text-indigo-400">{currentGesture}</div>
+                      </div>
+                    </div>
+                  )}
+
+                  {isCameraActive && useWebcam && (
+                    <button 
+                      onClick={() => setModelReloadKey(k => k + 1)}
+                      className="bg-slate-800/90 hover:bg-slate-700 text-white px-3 py-1.5 rounded-full text-xs font-bold transition shadow-lg backdrop-blur-md border border-slate-600 flex items-center"
+                      title="Reload Model"
+                    >
+                      <span className="mr-1">↻</span> Reload
+                    </button>
+                  )}
                 </div>
 
                 {/* Live Confidence Gauge */}
-                <div className="absolute top-4 right-4 px-4 py-2 bg-slate-900/90 backdrop-blur-md rounded-xl border border-emerald-500/40 shadow-lg flex items-center space-x-3 z-20">
-                  <div className="text-right">
-                    <div className="text-[10px] uppercase tracking-wider text-slate-400 font-bold">Confidence</div>
-                    <div className="text-lg font-black text-emerald-400">{confidence}%</div>
+                {!isModelLoading && (
+                  <div className="absolute top-4 right-4 px-4 py-2 bg-slate-900/90 backdrop-blur-md rounded-xl border border-emerald-500/40 shadow-lg flex items-center space-x-3 z-20">
+                    <div className="text-right">
+                      <div className="text-[10px] uppercase tracking-wider text-slate-400 font-bold">Confidence</div>
+                      <div className="text-lg font-black text-emerald-400">{confidence}%</div>
+                    </div>
                   </div>
-                </div>
+                )}
 
                 {/* Add Current Recognized Sign Button Overlay */}
                 <div className="absolute bottom-4 left-4 right-4 z-20 flex items-center justify-center">

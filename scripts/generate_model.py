@@ -4,6 +4,31 @@ import numpy as np
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.preprocessing import LabelEncoder
 
+def normalize_hand(flat_hand):
+    if len(flat_hand) < 3 * 21:
+        return flat_hand
+        
+    wx, wy, wz = flat_hand[0], flat_hand[1], flat_hand[2]
+    
+    # Middle finger base is landmark 9 (index 9*3 = 27)
+    mx, my = flat_hand[27], flat_hand[28]
+    
+    import math
+    real_dist = math.hypot(mx - wx, my - wy)
+    if real_dist < 0.0001:
+        real_dist = 0.0001
+        
+    scale = 0.3 / real_dist
+    
+    norm_hand = []
+    for i in range(len(flat_hand) // 3):
+        nx = (flat_hand[i*3] - wx) * scale
+        ny = (flat_hand[i*3 + 1] - wy) * scale + 1.0
+        nz = (flat_hand[i*3 + 2] - wz) * scale
+        norm_hand.extend([nx, ny, nz])
+        
+    return norm_hand
+
 def generate_hand(blueprint, noise_level=0.02):
     """
     Blueprint is a dict of finger extensions:
@@ -15,8 +40,10 @@ def generate_hand(blueprint, noise_level=0.02):
     
     def add_finger(is_extended, base_x, base_y):
         pts = []
+        # First point is the base (MCP joint), which is fixed relative to the wrist
+        pts.extend([base_x, base_y, 0.0])
         cur_y = base_y
-        for i in range(4):
+        for i in range(3):
             if is_extended:
                 cur_y -= 0.1 # straight up
             else:
@@ -35,27 +62,17 @@ def generate_hand(blueprint, noise_level=0.02):
     hand.extend(add_finger(blueprint.get('ring'), 0.1, 0.7))
     hand.extend(add_finger(blueprint.get('pinky'), 0.2, 0.7))
     
+    # Normalize the hand to match the inference pipeline
+    hand = normalize_hand(hand)
+    
     hand_arr = np.array(hand)
     noise = np.random.normal(0, noise_level, 63)
     return hand_arr + noise
 
 def generate_synthetic_data(samples_per_class=300):
     classes = {
-        # ISL Alphabets
-        "A": {'thumb': True, 'index': False, 'middle': False, 'ring': False, 'pinky': False},
-        "B": {'thumb': False, 'index': True, 'middle': True, 'ring': True, 'pinky': True},
-        "C": {'thumb': True, 'index': True, 'middle': True, 'ring': True, 'pinky': True},
-        "I": {'thumb': False, 'index': False, 'middle': False, 'ring': False, 'pinky': True},
-        "L": {'thumb': True, 'index': True, 'middle': False, 'ring': False, 'pinky': False},
-        "V": {'thumb': False, 'index': True, 'middle': True, 'ring': False, 'pinky': False},
-        "W": {'thumb': False, 'index': True, 'middle': True, 'ring': True, 'pinky': False},
-        
-        # ISL Common Words (Simulated static keyframes)
-        "HELLO": {'thumb': True, 'index': True, 'middle': True, 'ring': True, 'pinky': True},
-        "THANK YOU": {'thumb': True, 'index': True, 'middle': True, 'ring': True, 'pinky': True}, 
-        "YES": {'thumb': False, 'index': False, 'middle': False, 'ring': False, 'pinky': False},
-        "NO": {'thumb': False, 'index': True, 'middle': True, 'ring': False, 'pinky': False},
-        "PLEASE": {'thumb': True, 'index': True, 'middle': True, 'ring': True, 'pinky': True}
+        # Baseline Idle gesture so the model has something to fall back on
+        "Idle": {'thumb': False, 'index': False, 'middle': False, 'ring': False, 'pinky': False}
     }
     
     X = []

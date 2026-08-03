@@ -49,6 +49,33 @@ if os.path.exists(MODEL_PATH):
 
 
 
+def normalize_hand(flat_hand):
+    if len(flat_hand) < 3 * 21:
+        return flat_hand
+        
+    wx, wy, wz = flat_hand[0], flat_hand[1], flat_hand[2]
+    
+    # Middle finger base is landmark 9 (index 9*3 = 27)
+    mx, my = flat_hand[27], flat_hand[28]
+    
+    # Real distance from wrist to middle finger base
+    import math
+    real_dist = math.hypot(mx - wx, my - wy)
+    if real_dist < 0.0001:
+        real_dist = 0.0001
+        
+    # Target distance in the synthetic model is 0.3 (wrist at y=1.0, middle base at y=0.7)
+    scale = 0.3 / real_dist
+    
+    norm_hand = []
+    for i in range(len(flat_hand) // 3):
+        nx = (flat_hand[i*3] - wx) * scale
+        ny = (flat_hand[i*3 + 1] - wy) * scale + 1.0
+        nz = (flat_hand[i*3 + 2] - wz) * scale
+        norm_hand.extend([nx, ny, nz])
+        
+    return norm_hand
+
 @router.post("/isl-recognize", response_model=ISLOutput)
 async def recognize_isl(input: ISLInput):
     recognized_text = ""
@@ -58,7 +85,7 @@ async def recognize_isl(input: ISLInput):
         if clf is not None:
             features = []
             for i in range(min(2, len(input.landmarks))):
-                features.extend(input.landmarks[i])
+                features.extend(normalize_hand(input.landmarks[i]))
             
             if len(features) < 126:
                 features.extend([0.0] * (126 - len(features)))
@@ -70,8 +97,8 @@ async def recognize_isl(input: ISLInput):
                 pred = clf.predict(X_input)[0]
                 prob = np.max(clf.predict_proba(X_input))
                 
-                if prob < 0.70:
-                    recognized_text = ""
+                if prob < 0.65:
+                    recognized_text = "Unknown"
                 elif le is not None and isinstance(pred, (int, np.integer)):
                     recognized_text = le.inverse_transform([pred])[0]
                 else:
@@ -136,6 +163,7 @@ async def train_model(input: TrainInput):
         return {"status": "error", "message": "No data provided"}
         
     try:
+        # pyrefly: ignore [missing-import]
         from generate_model import generate_synthetic_data
         from sklearn.ensemble import RandomForestClassifier
         from sklearn.preprocessing import LabelEncoder
@@ -149,7 +177,7 @@ async def train_model(input: TrainInput):
         for sample in input.data:
             flat_features = []
             for i in range(min(2, len(sample.features))):
-                flat_features.extend(sample.features[i])
+                flat_features.extend(normalize_hand(sample.features[i]))
             if len(flat_features) < 126:
                 flat_features.extend([0.0] * (126 - len(flat_features)))
             else:

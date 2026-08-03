@@ -4,7 +4,7 @@ interface TrainModelProps {
   isDarkMode: boolean;
 }
 
-const ALPHABETS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('');
+const ALPHABETS = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z'];
 
 export const TrainModel: React.FC<TrainModelProps> = ({ isDarkMode }) => {
   const [selectedLabel, setSelectedLabel] = useState<string>('A');
@@ -13,6 +13,8 @@ export const TrainModel: React.FC<TrainModelProps> = ({ isDarkMode }) => {
   const [isTraining, setIsTraining] = useState<boolean>(false);
   const [trainStatus, setTrainStatus] = useState<string | null>(null);
   const [cameraError, setCameraError] = useState<string | null>(null);
+  const [isModelLoading, setIsModelLoading] = useState<boolean>(true);
+  const [modelReloadKey, setModelReloadKey] = useState<number>(0);
 
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -37,13 +39,14 @@ export const TrainModel: React.FC<TrainModelProps> = ({ isDarkMode }) => {
     let cameraInstance: any = null;
     let handsInstance: any = null;
     
+    setIsModelLoading(true);
     setCameraError(null);
     const win = window as any;
 
     if (win.Hands && videoRef.current && canvasRef.current) {
       try {
         handsInstance = new win.Hands({
-          locateFile: (file: string) => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`
+          locateFile: (file: string) => `/mediapipe/hands/${file}`
         });
 
         handsInstance.setOptions({
@@ -54,6 +57,7 @@ export const TrainModel: React.FC<TrainModelProps> = ({ isDarkMode }) => {
         });
 
         handsInstance.onResults((results: any) => {
+          setIsModelLoading(false);
           const video = videoRef.current;
           const canvas = canvasRef.current;
           if (!canvas || !video) return;
@@ -165,7 +169,7 @@ export const TrainModel: React.FC<TrainModelProps> = ({ isDarkMode }) => {
         try { handsInstance.close(); } catch {}
       }
     };
-  }, []);
+  }, [modelReloadKey]);
 
   const handleStartRecording = () => {
     setRecordedFrames(0);
@@ -211,6 +215,24 @@ export const TrainModel: React.FC<TrainModelProps> = ({ isDarkMode }) => {
         {/* Camera Area */}
         <div className="space-y-4">
           <div className="relative aspect-video bg-slate-950 rounded-xl overflow-hidden border border-slate-800 shadow-lg">
+            
+            {/* Loading Indicator & Reload Button */}
+            <div className="absolute top-4 left-4 z-30 flex flex-col items-start space-y-2">
+              {isModelLoading && (
+                <div className="bg-amber-500/90 text-white px-3 py-1.5 rounded-full text-xs font-bold animate-pulse flex items-center shadow-lg backdrop-blur-md">
+                  <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+                  Loading Model...
+                </div>
+              )}
+              <button 
+                onClick={() => setModelReloadKey(k => k + 1)}
+                className="bg-slate-800/80 hover:bg-slate-700 text-white px-3 py-1.5 rounded-full text-xs font-bold transition shadow-lg backdrop-blur-md border border-slate-600 flex items-center"
+                title="Reload Model"
+              >
+                <span className="mr-1">↻</span> Reload
+              </button>
+            </div>
+
             <video ref={videoRef} autoPlay playsInline muted className="w-full h-full object-cover" />
             <canvas ref={canvasRef} className="absolute inset-0 w-full h-full pointer-events-none z-10" />
             
