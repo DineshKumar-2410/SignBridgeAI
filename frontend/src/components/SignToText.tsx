@@ -231,25 +231,41 @@ export const SignToText: React.FC<SignToTextProps> = ({ selectedLanguage, isDark
     return () => clearInterval(interval);
   }, [isCameraActive, useWebcam]);
 
+  const updateGrammar = (rawText: string) => {
+    if (!rawText) {
+      setAiCorrected('');
+      return;
+    }
+    const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+    fetch(`${API_URL}/api/ml/isl/grammar-correct`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ raw_tokens: rawText, language: selectedLanguage })
+    })
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.corrected_sentence) setAiCorrected(data.corrected_sentence);
+      })
+      .catch(() => {
+        setAiCorrected(`${rawText.charAt(0).toUpperCase() + rawText.slice(1).toLowerCase()}.`);
+      });
+  };
+
   const handleAppendSign = (sign: string) => {
     setDetectedSentence((prev) => {
       const newRaw = prev ? `${prev} ${sign}` : sign;
-      
-      // Call backend AI grammar formation API
-      const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
-      fetch(`${API_URL}/api/ml/isl/grammar-correct`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ raw_tokens: newRaw, language: selectedLanguage })
-      })
-        .then((res) => res.json())
-        .then((data) => {
-          if (data.corrected_sentence) setAiCorrected(data.corrected_sentence);
-        })
-        .catch(() => {
-          setAiCorrected(`${newRaw.charAt(0).toUpperCase() + newRaw.slice(1).toLowerCase()}.`);
-        });
+      updateGrammar(newRaw);
+      return newRaw;
+    });
+  };
 
+  const handleBackspace = () => {
+    setDetectedSentence((prev) => {
+      if (!prev) return prev;
+      const tokens = prev.trim().split(' ');
+      tokens.pop();
+      const newRaw = tokens.join(' ');
+      updateGrammar(newRaw);
       return newRaw;
     });
   };
@@ -522,6 +538,15 @@ export const SignToText: React.FC<SignToTextProps> = ({ selectedLanguage, isDark
               title="Save translation to history log"
             >
               💾 Save
+            </button>
+
+            <button
+              onClick={handleBackspace}
+              disabled={!detectedSentence}
+              className="py-3 px-3 rounded-xl bg-slate-800 hover:bg-slate-700 disabled:opacity-50 text-amber-400 font-semibold text-sm transition-all"
+              title="Delete last detected sign"
+            >
+              ⌫ Backspace
             </button>
 
             <button
