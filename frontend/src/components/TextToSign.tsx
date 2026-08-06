@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Avatar3D, ANIMATION_DICTIONARY } from './Avatar3D';
+import { Avatar3D } from './Avatar3D';
 import { englishToISLGloss } from '../utils/nlp';
 
 interface TextToSignProps {
