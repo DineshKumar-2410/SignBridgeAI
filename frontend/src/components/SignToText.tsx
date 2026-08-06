@@ -32,7 +32,13 @@ export const SignToText: React.FC<SignToTextProps> = ({ selectedLanguage, isDark
 
   // Auto-print recognized gesture to output sentence box when gesture is held
   useEffect(() => {
-    if (!autoAppend || !currentGesture || currentGesture === 'Unknown') return;
+    if (!autoAppend) return;
+
+    if (!currentGesture || currentGesture === 'Unknown') {
+      lastPrintedSignRef.current = '';
+      if (printTimeoutRef.current) clearTimeout(printTimeoutRef.current);
+      return;
+    }
 
     const letter = currentGesture.split(' ')[0];
     if (letter !== lastPrintedSignRef.current) {
