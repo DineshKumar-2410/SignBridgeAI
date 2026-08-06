@@ -58,28 +58,39 @@ const DualHandModel = ({ currentSign, isPlaying, speed }: { currentSign: string,
   // Each pose: [Thumb, Index, Middle, Ring, Pinky] -> [base, mid, tip]
   const fullOpen = [[0,0,0], [0,0,0], [0,0,0], [0,0,0], [0,0,0]];
   
-  const letterPoses: Record<string, number[][]> = {
-    'A': [[0, 0, 0], [1.5, 1.5, 1.5], [1.5, 1.5, 1.5], [1.5, 1.5, 1.5], [1.5, 1.5, 1.5]],
-    'B': [[0, 1.5, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0]],
-    'C': [[0, 0.5, 0.5], [0.5, 0.5, 0.5], [0.5, 0.5, 0.5], [0.5, 0.5, 0.5], [0.5, 0.5, 0.5]],
-    'D': [[0, 1.0, 0], [0, 0, 0], [1.5, 1.5, 1.5], [1.5, 1.5, 1.5], [1.5, 1.5, 1.5]],
-    'E': [[0, 1.5, 0], [1.5, 1.5, 0], [1.5, 1.5, 0], [1.5, 1.5, 0], [1.5, 1.5, 0]],
-    'F': [[0, 1.0, 0], [1.5, 1.5, 1.5], [0, 0, 0], [0, 0, 0], [0, 0, 0]],
-    'G': [[0, 0, 0], [0, 0, 0], [1.5, 1.5, 1.5], [1.5, 1.5, 1.5], [1.5, 1.5, 1.5]],
-    'H': [[0, 1.5, 0], [0, 0, 0], [0, 0, 0], [1.5, 1.5, 1.5], [1.5, 1.5, 1.5]],
-    'I': [[0, 1.5, 0], [1.5, 1.5, 1.5], [1.5, 1.5, 1.5], [1.5, 1.5, 1.5], [0, 0, 0]],
-    'L': [[0, 0, 0], [0, 0, 0], [1.5, 1.5, 1.5], [1.5, 1.5, 1.5], [1.5, 1.5, 1.5]],
-    'M': [[0, 1.5, 0], [1.5, 1.5, 1.5], [1.5, 1.5, 1.5], [1.5, 1.5, 1.5], [1.5, 1.5, 1.5]], // simplified
-    'N': [[0, 1.5, 0], [1.5, 1.5, 1.5], [1.5, 1.5, 1.5], [1.5, 1.5, 1.5], [1.5, 1.5, 1.5]], // simplified
-    'O': [[0, 1.0, 1.0], [1.0, 1.0, 1.0], [1.0, 1.0, 1.0], [1.0, 1.0, 1.0], [1.0, 1.0, 1.0]],
-    'P': [[0, 1.0, 0], [0, 0, 0], [0.5, 0.5, 0.5], [1.5, 1.5, 1.5], [1.5, 1.5, 1.5]],
-    'S': [[0, 1.5, 0], [1.5, 1.5, 1.5], [1.5, 1.5, 1.5], [1.5, 1.5, 1.5], [1.5, 1.5, 1.5]],
-    'T': [[0, 1.5, 0], [1.5, 1.5, 1.5], [1.5, 1.5, 1.5], [1.5, 1.5, 1.5], [1.5, 1.5, 1.5]], // simplified
-    'U': [[0, 1.5, 0], [0, 0, 0], [0, 0, 0], [1.5, 1.5, 1.5], [1.5, 1.5, 1.5]],
-    'V': [[0, 1.5, 0], [0, 0, 0], [0, 0, 0], [1.5, 1.5, 1.5], [1.5, 1.5, 1.5]],
-    'W': [[0, 1.5, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0], [1.5, 1.5, 1.5]],
-    'Y': [[0, 0, 0], [1.5, 1.5, 1.5], [1.5, 1.5, 1.5], [1.5, 1.5, 1.5], [0, 0, 0]],
-    ' ': fullOpen
+  // Base poses to reuse
+  const closedFist = [[0, 1.5, 0], [1.5, 1.5, 1.5], [1.5, 1.5, 1.5], [1.5, 1.5, 1.5], [1.5, 1.5, 1.5]];
+  const pointIndex = [[0, 1.5, 0], [0, 0, 0], [1.5, 1.5, 1.5], [1.5, 1.5, 1.5], [1.5, 1.5, 1.5]];
+  const pointTwo = [[0, 1.5, 0], [0, 0, 0], [0, 0, 0], [1.5, 1.5, 1.5], [1.5, 1.5, 1.5]];
+  const flatHand = [[0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0]];
+  
+  // Define which hands to use for each letter. 
+  // If left is not provided, it defaults to fullOpen (one-handed sign).
+  const letterPoses: Record<string, { left?: number[][], right: number[][] }> = {
+    // Two-handed signs (ISL typically uses two hands for vowels and complex consonants)
+    'A': { left: pointIndex, right: pointIndex }, // fingertips touching (mock)
+    'B': { left: flatHand, right: flatHand }, // binoculars (mock)
+    'D': { left: pointIndex, right: pointIndex }, 
+    'E': { left: pointIndex, right: pointIndex },
+    'F': { left: pointTwo, right: pointTwo },
+    'G': { left: closedFist, right: closedFist },
+    'H': { left: flatHand, right: flatHand },
+    'M': { left: flatHand, right: flatHand },
+    'N': { left: flatHand, right: flatHand },
+    'P': { left: pointIndex, right: pointIndex },
+    'S': { left: closedFist, right: closedFist },
+    'T': { left: pointIndex, right: flatHand }, // Asymmetric two-handed
+    'Y': { left: pointIndex, right: flatHand },
+
+    // One-handed signs
+    'C': { right: [[0, 0.5, 0.5], [0.5, 0.5, 0.5], [0.5, 0.5, 0.5], [0.5, 0.5, 0.5], [0.5, 0.5, 0.5]] },
+    'I': { right: [[0, 1.5, 0], [1.5, 1.5, 1.5], [1.5, 1.5, 1.5], [1.5, 1.5, 1.5], [0, 0, 0]] }, // pinky up
+    'L': { right: [[0, 0, 0], [0, 0, 0], [1.5, 1.5, 1.5], [1.5, 1.5, 1.5], [1.5, 1.5, 1.5]] },
+    'O': { right: [[0, 1.0, 1.0], [1.0, 1.0, 1.0], [1.0, 1.0, 1.0], [1.0, 1.0, 1.0], [1.0, 1.0, 1.0]] },
+    'U': { right: pointTwo },
+    'V': { right: pointTwo },
+    'W': { right: [[0, 1.5, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0], [1.5, 1.5, 1.5]] },
+    ' ': { right: fullOpen }
   };
 
   const defaultPose = { left: fullOpen, right: fullOpen };
@@ -88,9 +99,15 @@ const DualHandModel = ({ currentSign, isPlaying, speed }: { currentSign: string,
   const getTargetPose = () => {
     if (!isPlaying) return defaultPose;
     const letter = currentSign?.toUpperCase() || ' ';
-    const pose = letterPoses[letter] || fullOpen;
-    // Apply finger spelling to BOTH hands
-    return { left: pose, right: pose };
+    const poseObj = letterPoses[letter];
+    
+    if (poseObj) {
+      return {
+        left: poseObj.left || fullOpen,
+        right: poseObj.right
+      };
+    }
+    return defaultPose;
   };
 
   const targetPose = getTargetPose();
