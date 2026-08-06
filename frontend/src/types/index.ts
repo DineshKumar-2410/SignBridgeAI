@@ -1,4 +1,4 @@
-export type ActiveTab = 'sign-to-text' | 'text-to-sign' | 'live' | 'learn' | 'history' | 'train';
+export type ActiveTab = 'sign-to-text' | 'text-to-sign' | 'translator' | 'learn' | 'history' | 'train';
 
 export interface HistoryItem {
   id: string;

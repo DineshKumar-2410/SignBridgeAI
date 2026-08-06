@@ -72,7 +72,7 @@ export const Navbar: React.FC<NavbarProps> = ({
             {[
               { id: 'sign-to-text', label: 'Sign → Text/Speech', icon: '📷' },
               { id: 'text-to-sign', label: 'Speech/Text → ISL Avatar', icon: '🤖' },
-              { id: 'live', label: 'Live Conversation', icon: '💬' },
+              { id: 'translator', label: 'Translator', icon: '🌐' },
               { id: 'learn', label: 'Learn ISL', icon: '🎓' },
               { id: 'history', label: 'History', icon: '📜' },
               { id: 'train', label: 'Train AI Model', icon: '🧠' },
@@ -147,7 +147,7 @@ export const Navbar: React.FC<NavbarProps> = ({
           {[
             { id: 'sign-to-text', label: 'Sign → Text', icon: '📷' },
             { id: 'text-to-sign', label: 'Avatar', icon: '🤖' },
-            { id: 'live', label: 'Live', icon: '💬' },
+            { id: 'translator', label: 'Translator', icon: '🌐' },
             { id: 'learn', label: 'Learn', icon: '🎓' },
             { id: 'history', label: 'History', icon: '📜' },
             { id: 'train', label: 'Train AI', icon: '🧠' },

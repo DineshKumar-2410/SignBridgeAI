@@ -3,7 +3,7 @@ import { ActiveTab, HistoryItem } from './types';
 import { Navbar } from './components/Navbar';
 import { SignToText } from './components/SignToText';
 import { TextToSign } from './components/TextToSign';
-import { LiveConversation } from './components/LiveConversation';
+import { Translator } from './components/Translator';
 import { LearnISL } from './components/LearnISL';
 import { History } from './components/History';
 import { TrainModel } from './components/TrainModel';
@@ -95,9 +95,8 @@ export const App: React.FC = () => {
           />
         )}
 
-        {activeTab === 'live' && (
-          <LiveConversation
-            selectedLanguage={selectedLanguage}
+        {activeTab === 'translator' && (
+          <Translator
             isDarkMode={isDarkMode}
           />
         )}
