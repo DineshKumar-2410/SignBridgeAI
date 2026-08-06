@@ -89,8 +89,8 @@ const DualHandModel = ({ currentSign, isPlaying, speed }: { currentSign: string,
     if (!isPlaying) return defaultPose;
     const letter = currentSign?.toUpperCase() || ' ';
     const pose = letterPoses[letter] || fullOpen;
-    // Apply finger spelling to the right hand
-    return { left: fullOpen, right: pose };
+    // Apply finger spelling to BOTH hands
+    return { left: pose, right: pose };
   };
 
   const targetPose = getTargetPose();
@@ -100,19 +100,28 @@ const DualHandModel = ({ currentSign, isPlaying, speed }: { currentSign: string,
     if (leftWristRef.current && rightWristRef.current) {
       const t = state.clock.elapsedTime * speed;
       
-      // Base idle breathing
+      // Base idle breathing and position
       leftWristRef.current.position.y = -0.5 + Math.sin(t * 0.5) * 0.05;
       rightWristRef.current.position.y = -0.5 + Math.cos(t * 0.5) * 0.05;
 
+      // Base rotation to show the side angle to the viewer
+      const baseRotY = 0.6; // Rotate inwards by ~35 degrees
+
       if (isPlaying && currentSign !== ' ') {
-        // slight wrist movement while spelling
-        rightWristRef.current.rotation.x = Math.sin(t * 4) * 0.1;
-        rightWristRef.current.rotation.z = Math.cos(t * 4) * 0.05;
-        
-        // J and Z have motion, but we'll stick to static for now
+        // Apply base rotation + slight wrist movement while spelling
+        leftWristRef.current.rotation.set(
+          Math.sin(t * 4) * 0.1,
+          baseRotY,
+          Math.cos(t * 4) * 0.05
+        );
+        rightWristRef.current.rotation.set(
+          Math.sin(t * 4) * 0.1,
+          -baseRotY,
+          Math.cos(t * 4) * 0.05
+        );
       } else {
-        leftWristRef.current.rotation.set(0, 0, 0);
-        rightWristRef.current.rotation.set(0, 0, 0);
+        leftWristRef.current.rotation.set(0, baseRotY, 0);
+        rightWristRef.current.rotation.set(0, -baseRotY, 0);
       }
     }
   });
