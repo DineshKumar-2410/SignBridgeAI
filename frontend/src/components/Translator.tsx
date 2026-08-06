@@ -20,14 +20,26 @@ export const Translator: React.FC<TranslatorProps> = ({ isDarkMode }) => {
     setError(null);
     
     try {
-      const response = await fetch(
-        `https://api.mymemory.translated.net/get?q=${encodeURIComponent(inputText)}&langpair=${sourceLang}|${targetLang}`
-      );
+      const response = await fetch('http://localhost:8000/api/translate/', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          text: inputText,
+          source_lang: sourceLang,
+          target_lang: targetLang
+        })
+      });
+      
+      if (!response.ok) {
+        throw new Error('Translation failed');
+      }
       
       const data = await response.json();
       
-      if (data.responseData && data.responseData.translatedText) {
-        setTranslatedText(data.responseData.translatedText);
+      if (data.translatedText) {
+        setTranslatedText(data.translatedText);
       } else {
         setError('Failed to translate. Please try again.');
       }
