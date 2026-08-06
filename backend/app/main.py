@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from .core.config import settings
-from .routes import auth, ml
+from .routes import auth, ml, translate
 from .database import engine, Base
 from .models.user import User
 from .models.conversation import Conversation
@@ -27,6 +27,7 @@ app.add_middleware(
 # Include routers
 app.include_router(auth.router, prefix="/api/auth", tags=["authentication"])
 app.include_router(ml.router, prefix="/api/ml", tags=["machine-learning"])
+app.include_router(translate.router, prefix="/api/translate", tags=["translation"])
 
 @app.get("/")
 async def root():
