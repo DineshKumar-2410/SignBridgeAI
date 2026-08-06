@@ -24,18 +24,27 @@ export const TextToSign: React.FC<TextToSignProps> = ({ selectedLanguage, isDark
   const handleTranslate = () => {
     // Run NLP to convert SVO English to SOV ISL Gloss
     const sequence = englishToISLGloss(inputText);
-    setGlossSequence(sequence);
+    
+    // Convert words into a sequence of characters for finger spelling
+    const chars: string[] = [];
+    sequence.forEach((word, index) => {
+      chars.push(...word.split(''));
+      if (index < sequence.length - 1) chars.push(' ');
+    });
+
+    setGlossSequence(chars);
     setActiveWordIndex(0);
     setIsPlaying(true);
   };
 
   const currentSignWord = glossSequence[activeWordIndex] || 'DEFAULT';
 
-  // Advance gesture word automatically on timeline when playing
+  // Advance gesture character automatically on timeline when playing
   useEffect(() => {
     if (!isPlaying || glossSequence.length === 0) return;
 
-    const intervalMs = (2500 / speed); // Time per animation
+    // Faster interval for finger spelling letters
+    const intervalMs = (600 / speed); 
     const timer = setInterval(() => {
       setActiveWordIndex((prev) => {
         if (prev + 1 >= glossSequence.length) {
@@ -214,10 +223,10 @@ export const TextToSign: React.FC<TextToSignProps> = ({ selectedLanguage, isDark
                 {glossSequence.length === 0 ? (
                   <span className="text-slate-600 text-sm italic py-2">No sequence generated yet. Enter text and click Translate.</span>
                 ) : (
-                  glossSequence.map((word, idx) => {
+                  glossSequence.map((char, idx) => {
                     const isActive = idx === activeWordIndex && isPlaying;
                     const isPlayed = idx < activeWordIndex;
-                    const hasAnimation = ANIMATION_DICTIONARY[word] !== undefined;
+                    const isSpace = char === ' ';
 
                     return (
                       <button
@@ -226,21 +235,18 @@ export const TextToSign: React.FC<TextToSignProps> = ({ selectedLanguage, isDark
                           setActiveWordIndex(idx);
                           setIsPlaying(true);
                         }}
-                        className={`px-4 py-2 rounded-lg text-sm font-bold transition-all relative overflow-hidden ${
-                          isActive
-                            ? 'bg-emerald-500 text-slate-950 shadow-[0_0_15px_rgba(16,185,129,0.4)] scale-105 transform z-10'
+                        disabled={isSpace}
+                        className={`px-3 py-2 rounded-lg text-sm font-bold transition-all relative overflow-hidden ${
+                          isSpace
+                            ? 'bg-transparent w-4'
+                            : isActive
+                            ? 'bg-emerald-500 text-slate-950 shadow-[0_0_15px_rgba(16,185,129,0.4)] scale-110 transform z-10'
                             : isPlayed
                             ? 'bg-slate-800 text-slate-400 border border-slate-700'
                             : 'bg-indigo-900/40 text-indigo-200 border border-indigo-700/50 hover:bg-indigo-800'
                         }`}
                       >
-                        {word}
-                        {!hasAnimation && (
-                          <span className="absolute -top-1 -right-1 flex h-3 w-3">
-                            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-rose-400 opacity-75"></span>
-                            <span className="relative inline-flex rounded-full h-3 w-3 bg-rose-500" title="Missing GLTF map"></span>
-                          </span>
-                        )}
+                        {isSpace ? '' : char}
                       </button>
                     )
                   })
