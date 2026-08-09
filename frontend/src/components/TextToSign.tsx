@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Avatar3D } from './Avatar3D';
 import { englishToISLGloss } from '../utils/nlp';
+import { ISL_ALPHABET_MAP, ISL_ALPHABET } from '../data/islAlphabet';
 
 interface TextToSignProps {
   selectedLanguage: string;
@@ -33,6 +34,13 @@ export const TextToSign: React.FC<TextToSignProps> = ({ selectedLanguage, isDark
     });
 
     setGlossSequence(chars);
+    setActiveWordIndex(0);
+    setIsPlaying(true);
+  };
+
+  // Quick preview: show a single letter on the avatar immediately
+  const handleQuickLetter = (letter: string) => {
+    setGlossSequence([letter]);
     setActiveWordIndex(0);
     setIsPlaying(true);
   };
@@ -162,6 +170,34 @@ export const TextToSign: React.FC<TextToSignProps> = ({ selectedLanguage, isDark
 
           </div>
 
+          {/* ISL Letter Description Card */}
+          {(() => {
+            const letter = currentSignWord?.toUpperCase();
+            const entry = letter && letter !== ' ' ? ISL_ALPHABET_MAP[letter] : null;
+            return entry ? (
+              <div className="mt-3 p-3 rounded-xl bg-gradient-to-br from-indigo-950/60 to-purple-950/60 border border-indigo-700/40 space-y-1.5 animate-fade-in">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center space-x-2">
+                    <span className="text-2xl font-black text-indigo-300 leading-none">{entry.letter}</span>
+                    <span className="text-xs font-bold text-purple-400 uppercase tracking-widest">ISL Letter</span>
+                  </div>
+                  <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full border ${
+                    entry.hands === 'both'
+                      ? 'bg-amber-500/10 border-amber-500/40 text-amber-400'
+                      : 'bg-emerald-500/10 border-emerald-500/40 text-emerald-400'
+                  }`}>
+                    {entry.hands === 'both' ? '🤲 Both Hands' : entry.hands === 'right' ? '🫱 Right Hand' : '🫲 Left Hand'}
+                  </span>
+                </div>
+                <p className="text-xs text-slate-300 leading-relaxed">{entry.description}</p>
+              </div>
+            ) : isPlaying && currentSignWord === ' ' ? (
+              <div className="mt-3 p-3 rounded-xl bg-slate-800/50 border border-slate-700/40 text-xs text-slate-500 italic">
+                Word break — hands rest in neutral position.
+              </div>
+            ) : null;
+          })()}
+
         </div>
       </div>
 
@@ -251,6 +287,38 @@ export const TextToSign: React.FC<TextToSignProps> = ({ selectedLanguage, isDark
                     )
                   })
                 )}
+              </div>
+            </div>
+
+          {/* A–Z Quick Click Alphabet */}
+            <div className="pt-2">
+              <label className="block text-xs font-semibold text-slate-400 mb-2 flex justify-between">
+                <span>⚡ Quick Sign — A to Z</span>
+                <span className="text-indigo-400 text-[10px]">Click any letter to preview</span>
+              </label>
+              <div className="grid grid-cols-9 gap-1 p-3 rounded-xl bg-slate-950 border border-slate-800">
+                {ISL_ALPHABET.map(({ letter, hands }) => {
+                  const isActive =
+                    glossSequence.length === 1 &&
+                    glossSequence[0]?.toUpperCase() === letter;
+                  return (
+                    <button
+                      key={letter}
+                      onClick={() => handleQuickLetter(letter)}
+                      title={`Sign letter ${letter} (${hands === 'both' ? 'both hands' : hands + ' hand'})`}
+                      className={`relative flex flex-col items-center justify-center py-1.5 rounded-lg text-xs font-black transition-all select-none group ${
+                        isActive
+                          ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-600/40 scale-110 z-10'
+                          : 'bg-slate-800/70 text-slate-300 hover:bg-indigo-900/60 hover:text-indigo-200 border border-slate-700/50 hover:border-indigo-600/50'
+                      }`}
+                    >
+                      <span className="text-sm leading-none">{letter}</span>
+                      <span className={`text-[8px] leading-none mt-0.5 ${isActive ? 'text-indigo-200' : 'text-slate-500 group-hover:text-indigo-400'}`}>
+                        {hands === 'both' ? '🤲' : hands === 'right' ? '🫱' : '🫲'}
+                      </span>
+                    </button>
+                  );
+                })}
               </div>
             </div>
 
