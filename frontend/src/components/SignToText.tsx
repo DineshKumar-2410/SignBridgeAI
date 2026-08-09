@@ -7,7 +7,7 @@ interface SignToTextProps {
   onAddHistory: (item: HistoryItem) => void;
 }
 
-const ALPHABETS_LIST = ['A', 'B', 'C', 'D'];
+const ALPHABETS_LIST = ['A','B','C','D','E','F','G','H','I','J','K','L','M','N','O','P','Q','R','S','T','U','V','W','X','Y','Z'];
 const SAMPLE_SIGNS: string[] = [];
 
 export const SignToText: React.FC<SignToTextProps> = ({ selectedLanguage, isDarkMode, onAddHistory }) => {
