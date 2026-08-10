@@ -10,148 +10,175 @@ interface Avatar3DProps {
   speed: number;
 }
 
-// Full-open reference pose
+const SKIN = '#fbd38d';
 const FULL_OPEN: number[][] = [[0,0,0],[0,0,0],[0,0,0],[0,0,0],[0,0,0]];
 
-// ---------------------------------------------------------
-// 1. SINGLE FINGER — reads live target from a ref
-// ---------------------------------------------------------
-interface FingerProps {
+interface FingerDef {
   position: [number, number, number];
   rotation: [number, number, number];
   length: number;
-  color: string;
-  /** Index into the hand pose array: 0=Thumb,1=Index,2=Middle,3=Ring,4=Pinky */
-  fingerIndex: number;
-  /** Ref to the parent hand's current pose array [5 fingers][3 joints] */
-  poseRef: React.MutableRefObject<number[][]>;
 }
 
-const Finger: React.FC<FingerProps> = ({ position, rotation, length, color, fingerIndex, poseRef }) => {
-  const baseRef = useRef<THREE.Group>(null);
-  const midRef  = useRef<THREE.Group>(null);
-  const tipRef  = useRef<THREE.Group>(null);
+// Left hand finger definitions (thumb → pinky)
+const LEFT_FINGERS: FingerDef[] = [
+  { position: [ 0.9, 0.3, 0], rotation: [0, 0, -0.8],  length: 1.0 }, // Thumb
+  { position: [ 0.6, 1.2, 0], rotation: [0, 0, -0.05], length: 1.3 }, // Index
+  { position: [ 0.0, 1.2, 0], rotation: [0, 0,  0.0],  length: 1.4 }, // Middle
+  { position: [-0.6, 1.2, 0], rotation: [0, 0,  0.05], length: 1.3 }, // Ring
+  { position: [-1.1, 1.0, 0], rotation: [0, 0,  0.15], length: 1.1 }, // Pinky
+];
 
-  useFrame((_state, delta) => {
-    const pose = poseRef.current[fingerIndex] ?? [0, 0, 0];
-    const [b, m, t] = pose;
-    if (baseRef.current) baseRef.current.rotation.x = THREE.MathUtils.damp(baseRef.current.rotation.x, b, 6, delta);
-    if (midRef.current)  midRef.current.rotation.x  = THREE.MathUtils.damp(midRef.current.rotation.x,  m, 6, delta);
-    if (tipRef.current)  tipRef.current.rotation.x  = THREE.MathUtils.damp(tipRef.current.rotation.x,  t, 6, delta);
-  });
+// Right hand mirrors the X positions and Z tilts
+const RIGHT_FINGERS: FingerDef[] = LEFT_FINGERS.map(f => ({
+  position: [-f.position[0], f.position[1], f.position[2]] as [number, number, number],
+  rotation: [f.rotation[0], f.rotation[1], -f.rotation[2]] as [number, number, number],
+  length: f.length,
+}));
 
+// Plain render helper (not a React component — no hooks inside)
+function renderFinger(
+  def: FingerDef,
+  bRef: React.MutableRefObject<THREE.Group | null>,
+  mRef: React.MutableRefObject<THREE.Group | null>,
+  tRef: React.MutableRefObject<THREE.Group | null>,
+): React.ReactNode {
+  const L = def.length;
   return (
-    <group position={position} rotation={rotation}>
-      <group ref={baseRef}>
-        <mesh position={[0, length * 0.16, 0]}>
-          <cylinderGeometry args={[0.12, 0.12, length * 0.33, 16]} />
-          <meshStandardMaterial color={color} roughness={0.3} metalness={0.1} />
+    <group position={def.position} rotation={def.rotation}>
+      {/* Base joint — knuckle pivot */}
+      <group ref={bRef}>
+        <mesh position={[0, L * 0.16, 0]}>
+          <cylinderGeometry args={[0.12, 0.12, L * 0.33, 12]} />
+          <meshStandardMaterial color={SKIN} roughness={0.3} metalness={0.1} />
         </mesh>
-        <group position={[0, length * 0.33, 0]} ref={midRef}>
-          <mesh position={[0, length * 0.16, 0]}>
-            <cylinderGeometry args={[0.11, 0.11, length * 0.33, 16]} />
-            <meshStandardMaterial color={color} roughness={0.3} metalness={0.1} />
+
+        {/* Mid joint — PIP pivot */}
+        <group position={[0, L * 0.33, 0]} ref={mRef}>
+          <mesh position={[0, L * 0.16, 0]}>
+            <cylinderGeometry args={[0.11, 0.11, L * 0.33, 12]} />
+            <meshStandardMaterial color={SKIN} roughness={0.3} metalness={0.1} />
           </mesh>
-          <group position={[0, length * 0.33, 0]} ref={tipRef}>
-            <mesh position={[0, length * 0.16, 0]}>
-              <cylinderGeometry args={[0.10, 0.10, length * 0.33, 16]} />
-              <meshStandardMaterial color={color} roughness={0.3} metalness={0.1} />
+
+          {/* Tip joint — DIP pivot */}
+          <group position={[0, L * 0.33, 0]} ref={tRef}>
+            <mesh position={[0, L * 0.16, 0]}>
+              <cylinderGeometry args={[0.10, 0.10, L * 0.33, 12]} />
+              <meshStandardMaterial color={SKIN} roughness={0.3} metalness={0.1} />
             </mesh>
           </group>
         </group>
       </group>
     </group>
   );
-};
-
-// ---------------------------------------------------------
-// 2. HAND — owns a poseRef so fingers always read latest
-// ---------------------------------------------------------
-interface HandProps {
-  position: [number, number, number];
-  isLeft: boolean;
-  poseRef: React.MutableRefObject<number[][]>;
-  wristRef: React.MutableRefObject<THREE.Group | null>;
 }
 
-const Hand: React.FC<HandProps> = ({ position, isLeft, poseRef, wristRef }) => {
-  const color = '#fbd38d';
-  const s = isLeft ? 1 : -1; // mirror X offsets for left vs right
-
-  return (
-    <group ref={wristRef} position={position}>
-      {/* Palm */}
-      <mesh position={[0, 0.5, 0]}>
-        <boxGeometry args={[1.6, 1.4, 0.4]} />
-        <meshStandardMaterial color={color} roughness={0.4} />
-      </mesh>
-
-      {/* Thumb */}
-      <Finger position={[s * 0.9, 0.3, 0]} rotation={[0, 0, s * -0.8]} length={1.0} color={color} fingerIndex={0} poseRef={poseRef} />
-      {/* Index */}
-      <Finger position={[s * 0.6, 1.2, 0]} rotation={[0, 0, s * -0.05]} length={1.3} color={color} fingerIndex={1} poseRef={poseRef} />
-      {/* Middle */}
-      <Finger position={[0, 1.2, 0]} rotation={[0, 0, 0]} length={1.4} color={color} fingerIndex={2} poseRef={poseRef} />
-      {/* Ring */}
-      <Finger position={[s * -0.6, 1.2, 0]} rotation={[0, 0, s * 0.05]} length={1.3} color={color} fingerIndex={3} poseRef={poseRef} />
-      {/* Pinky */}
-      <Finger position={[s * -1.1, 1.0, 0]} rotation={[0, 0, s * 0.15]} length={1.1} color={color} fingerIndex={4} poseRef={poseRef} />
-    </group>
-  );
-};
-
 // ---------------------------------------------------------
-// 3. DUAL HAND MODEL — updates poseRefs every frame
+// Scene — ALL animation driven from ONE useFrame
 // ---------------------------------------------------------
-const DualHandModel = ({ currentSign, isPlaying, speed }: { currentSign: string; isPlaying: boolean; speed: number }) => {
-  const leftWristRef  = useRef<THREE.Group>(null);
-  const rightWristRef = useRef<THREE.Group>(null);
+const HandsScene: React.FC<Avatar3DProps> = ({ currentSign, isPlaying, speed }) => {
 
-  // These refs hold the LIVE target poses — readable by Finger's useFrame
-  const leftPoseRef  = useRef<number[][]>(FULL_OPEN);
-  const rightPoseRef = useRef<number[][]>(FULL_OPEN);
+  // ── Wrists ──
+  const lWrist = useRef<THREE.Group>(null);
+  const rWrist = useRef<THREE.Group>(null);
 
-  useFrame((state) => {
-    // --- Update pose refs based on current sign ---
+  // ── Left hand joint refs (finger × joint) ──
+  const l0b = useRef<THREE.Group>(null), l0m = useRef<THREE.Group>(null), l0t = useRef<THREE.Group>(null);
+  const l1b = useRef<THREE.Group>(null), l1m = useRef<THREE.Group>(null), l1t = useRef<THREE.Group>(null);
+  const l2b = useRef<THREE.Group>(null), l2m = useRef<THREE.Group>(null), l2t = useRef<THREE.Group>(null);
+  const l3b = useRef<THREE.Group>(null), l3m = useRef<THREE.Group>(null), l3t = useRef<THREE.Group>(null);
+  const l4b = useRef<THREE.Group>(null), l4m = useRef<THREE.Group>(null), l4t = useRef<THREE.Group>(null);
+
+  // ── Right hand joint refs ──
+  const r0b = useRef<THREE.Group>(null), r0m = useRef<THREE.Group>(null), r0t = useRef<THREE.Group>(null);
+  const r1b = useRef<THREE.Group>(null), r1m = useRef<THREE.Group>(null), r1t = useRef<THREE.Group>(null);
+  const r2b = useRef<THREE.Group>(null), r2m = useRef<THREE.Group>(null), r2t = useRef<THREE.Group>(null);
+  const r3b = useRef<THREE.Group>(null), r3m = useRef<THREE.Group>(null), r3t = useRef<THREE.Group>(null);
+  const r4b = useRef<THREE.Group>(null), r4m = useRef<THREE.Group>(null), r4t = useRef<THREE.Group>(null);
+
+  // Grouped for iteration in useFrame
+  const leftJoints  = [[l0b,l0m,l0t],[l1b,l1m,l1t],[l2b,l2m,l2t],[l3b,l3m,l3t],[l4b,l4m,l4t]];
+  const rightJoints = [[r0b,r0m,r0t],[r1b,r1m,r1t],[r2b,r2m,r2t],[r3b,r3m,r3t],[r4b,r4m,r4t]];
+
+  // ── Single unified useFrame — no ordering issues ──
+  useFrame((state, delta) => {
+    // Resolve target pose for this frame
     const letter = (currentSign ?? '').toUpperCase();
-    const entry = letter && letter !== ' ' ? ISL_ALPHABET_MAP[letter] : null;
+    const entry  = isPlaying && letter && letter !== ' ' ? ISL_ALPHABET_MAP[letter] : null;
+    const leftPose  = entry?.leftPose  ?? FULL_OPEN;
+    const rightPose = entry?.rightPose ?? FULL_OPEN;
 
-    if (isPlaying && entry) {
-      leftPoseRef.current  = entry.leftPose ?? FULL_OPEN;
-      rightPoseRef.current = entry.rightPose;
-    } else {
-      leftPoseRef.current  = FULL_OPEN;
-      rightPoseRef.current = FULL_OPEN;
-    }
+    // Animate joints for one hand
+    const animHand = (
+      joints: typeof leftJoints,
+      pose: number[][],
+    ) => {
+      joints.forEach(([bRef, mRef, tRef], fi) => {
+        const [b, m, t] = pose[fi] ?? [0, 0, 0];
+        if (bRef.current) bRef.current.rotation.x = THREE.MathUtils.damp(bRef.current.rotation.x, b, 8, delta);
+        if (mRef.current) mRef.current.rotation.x = THREE.MathUtils.damp(mRef.current.rotation.x, m, 8, delta);
+        if (tRef.current) tRef.current.rotation.x = THREE.MathUtils.damp(tRef.current.rotation.x, t, 8, delta);
+      });
+    };
 
-    // --- Animate wrist positions & rotations ---
-    const t = state.clock.elapsedTime * speed;
+    animHand(leftJoints,  leftPose);
+    animHand(rightJoints, rightPose);
+
+    // Animate wrists (idle breathing + letter micro-movement)
+    const tt       = state.clock.elapsedTime * speed;
     const baseRotY = 0.6;
+    const signing  = isPlaying && currentSign !== ' ';
 
-    if (leftWristRef.current && rightWristRef.current) {
-      leftWristRef.current.position.y  = -0.5 + Math.sin(t * 0.5) * 0.05;
-      rightWristRef.current.position.y = -0.5 + Math.cos(t * 0.5) * 0.05;
-
-      if (isPlaying && currentSign !== ' ') {
-        leftWristRef.current.rotation.set(Math.sin(t * 4) * 0.08, baseRotY, Math.cos(t * 4) * 0.04);
-        rightWristRef.current.rotation.set(Math.sin(t * 4) * 0.08, -baseRotY, Math.cos(t * 4) * 0.04);
-      } else {
-        leftWristRef.current.rotation.set(0, baseRotY, 0);
-        rightWristRef.current.rotation.set(0, -baseRotY, 0);
-      }
+    if (lWrist.current) {
+      lWrist.current.position.y = -0.5 + Math.sin(tt * 0.5) * 0.05;
+      lWrist.current.rotation.set(
+        signing ? Math.sin(tt * 4) * 0.05 : 0,
+        baseRotY,
+        signing ? Math.cos(tt * 4) * 0.03 : 0,
+      );
+    }
+    if (rWrist.current) {
+      rWrist.current.position.y = -0.5 + Math.cos(tt * 0.5) * 0.05;
+      rWrist.current.rotation.set(
+        signing ? Math.sin(tt * 4) * 0.05 : 0,
+        -baseRotY,
+        signing ? Math.cos(tt * 4) * 0.03 : 0,
+      );
     }
   });
 
   return (
     <group>
-      <Hand position={[-1.5, -0.5, 0]} isLeft={true}  poseRef={leftPoseRef}  wristRef={leftWristRef} />
-      <Hand position={[ 1.5, -0.5, 0]} isLeft={false} poseRef={rightPoseRef} wristRef={rightWristRef} />
+      {/* ── Left hand ── */}
+      <group ref={lWrist} position={[-1.5, -0.5, 0]}>
+        <mesh position={[0, 0.5, 0]}>
+          <boxGeometry args={[1.6, 1.4, 0.4]} />
+          <meshStandardMaterial color={SKIN} roughness={0.4} />
+        </mesh>
+        {renderFinger(LEFT_FINGERS[0], l0b, l0m, l0t)}
+        {renderFinger(LEFT_FINGERS[1], l1b, l1m, l1t)}
+        {renderFinger(LEFT_FINGERS[2], l2b, l2m, l2t)}
+        {renderFinger(LEFT_FINGERS[3], l3b, l3m, l3t)}
+        {renderFinger(LEFT_FINGERS[4], l4b, l4m, l4t)}
+      </group>
+
+      {/* ── Right hand ── */}
+      <group ref={rWrist} position={[1.5, -0.5, 0]}>
+        <mesh position={[0, 0.5, 0]}>
+          <boxGeometry args={[1.6, 1.4, 0.4]} />
+          <meshStandardMaterial color={SKIN} roughness={0.4} />
+        </mesh>
+        {renderFinger(RIGHT_FINGERS[0], r0b, r0m, r0t)}
+        {renderFinger(RIGHT_FINGERS[1], r1b, r1m, r1t)}
+        {renderFinger(RIGHT_FINGERS[2], r2b, r2m, r2t)}
+        {renderFinger(RIGHT_FINGERS[3], r3b, r3m, r3t)}
+        {renderFinger(RIGHT_FINGERS[4], r4b, r4m, r4t)}
+      </group>
     </group>
   );
 };
 
 // ---------------------------------------------------------
-// 4. CANVAS WRAPPER
+// Canvas wrapper
 // ---------------------------------------------------------
 export const Avatar3D: React.FC<Avatar3DProps> = ({ currentSign, isPlaying, speed }) => {
   return (
@@ -161,10 +188,16 @@ export const Avatar3D: React.FC<Avatar3DProps> = ({ currentSign, isPlaying, spee
         <directionalLight position={[5, 10, 5]} intensity={1.5} castShadow />
         <Environment preset="city" />
 
-        <DualHandModel currentSign={currentSign} isPlaying={isPlaying} speed={speed} />
+        <HandsScene currentSign={currentSign} isPlaying={isPlaying} speed={speed} />
 
-        <OrbitControls enableZoom={false} enablePan={false} maxPolarAngle={Math.PI / 2 + 0.2} minPolarAngle={Math.PI / 2 - 0.2} />
+        <OrbitControls
+          enableZoom={false}
+          enablePan={false}
+          maxPolarAngle={Math.PI / 2 + 0.2}
+          minPolarAngle={Math.PI / 2 - 0.2}
+        />
       </Canvas>
+
       <div className="absolute top-4 left-4 px-3 py-1.5 rounded-full bg-slate-900/80 backdrop-blur-md border border-slate-700 text-xs font-semibold text-indigo-300 flex items-center space-x-2">
         <span className={`w-2.5 h-2.5 rounded-full ${isPlaying ? 'bg-emerald-400 animate-ping' : 'bg-slate-500'}`} />
         <span>Signing: {currentSign || 'IDLE'}</span>

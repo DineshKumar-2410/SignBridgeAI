@@ -265,7 +265,7 @@ export const LearnISL: React.FC<LearnISLProps> = ({ isDarkMode }) => {
       {activeCategory === 'alphabets' && (
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
           
-          {/* Left Grid: A to Z buttons */}
+          {/* Left Grid: A to Z buttons + ISL Chart Image */}
           <div className={`lg:col-span-7 p-6 rounded-2xl border shadow-xl transition-all ${
             isDarkMode ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200'
           }`}>
@@ -284,6 +284,28 @@ export const LearnISL: React.FC<LearnISLProps> = ({ isDarkMode }) => {
                   {letter}
                 </button>
               ))}
+            </div>
+
+            {/* ISL Official Alphabet Reference Chart */}
+            <div className="mt-6">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-xs font-bold text-indigo-400 flex items-center space-x-1.5">
+                  <span>📸</span>
+                  <span>Official ISL Alphabet Reference Chart (A–Z)</span>
+                </span>
+                <span className="text-[10px] text-slate-500">ISLRTC · Indian Sign Language Research &amp; Training Centre</span>
+              </div>
+              <div className="relative group rounded-xl overflow-hidden border border-slate-700/60 bg-slate-950 shadow-inner">
+                <img
+                  src="/isl.png"
+                  alt="Official ISL Indian Sign Language Alphabet Chart A to Z"
+                  className="w-full object-contain rounded-xl transition-transform duration-300 group-hover:scale-[1.02]"
+                />
+                <div className="absolute inset-0 bg-gradient-to-t from-slate-950/60 via-transparent to-transparent pointer-events-none rounded-xl" />
+                <div className="absolute bottom-2 right-2 px-2 py-1 rounded-md bg-slate-900/80 backdrop-blur-sm border border-slate-700 text-[10px] text-slate-400 font-semibold">
+                  🖼️ Click any letter above to see pose details →
+                </div>
+              </div>
             </div>
           </div>
 
