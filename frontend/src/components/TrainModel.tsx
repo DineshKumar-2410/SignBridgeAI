@@ -25,6 +25,7 @@ export const TrainModel: React.FC<TrainModelProps> = ({ isDarkMode }) => {
   // Use refs to bypass closure stale state in MediaPipe onResults callback
   const isRecordingRef = useRef(isRecording);
   const selectedLabelRef = useRef(selectedLabel);
+  const isProcessingFrameRef = useRef<boolean>(false);
 
   useEffect(() => {
     isRecordingRef.current = isRecording;
@@ -50,10 +51,10 @@ export const TrainModel: React.FC<TrainModelProps> = ({ isDarkMode }) => {
         });
 
         handsInstance.setOptions({
-          maxNumHands: 2,
-          modelComplexity: 1,
-          minDetectionConfidence: 0.3,
-          minTrackingConfidence: 0.3
+          maxNumHands: 1,
+          modelComplexity: 0, // Lite mode for fast performance
+          minDetectionConfidence: 0.35,
+          minTrackingConfidence: 0.35
         });
 
         handsInstance.onResults((results: any) => {
@@ -69,6 +70,9 @@ export const TrainModel: React.FC<TrainModelProps> = ({ isDarkMode }) => {
               canvas.width = video.videoWidth;
               canvas.height = video.videoHeight;
             }
+          } else {
+            canvas.width = 640;
+            canvas.height = 480;
           }
 
           ctx.save();
@@ -84,9 +88,9 @@ export const TrainModel: React.FC<TrainModelProps> = ({ isDarkMode }) => {
               [13, 17], [17, 18], [18, 19], [19, 20], [0, 17]
             ];
 
+            ctx.lineWidth = 3;
+            ctx.strokeStyle = '#00F0FF';
             for (const landmarks of results.multiHandLandmarks) {
-              ctx.lineWidth = 4;
-              ctx.strokeStyle = '#00F0FF';
               for (const [startIdx, endIdx] of HAND_CONNECTIONS) {
                 const p1 = landmarks[startIdx];
                 const p2 = landmarks[endIdx];
@@ -100,11 +104,8 @@ export const TrainModel: React.FC<TrainModelProps> = ({ isDarkMode }) => {
               ctx.fillStyle = '#FFE600';
               for (const lm of landmarks) {
                 ctx.beginPath();
-                ctx.arc(lm.x * canvas.width, lm.y * canvas.height, 6, 0, 2 * Math.PI);
+                ctx.arc(lm.x * canvas.width, lm.y * canvas.height, 4, 0, 2 * Math.PI);
                 ctx.fill();
-                ctx.lineWidth = 1.5;
-                ctx.strokeStyle = '#000000';
-                ctx.stroke();
               }
             }
 
@@ -136,12 +137,19 @@ export const TrainModel: React.FC<TrainModelProps> = ({ isDarkMode }) => {
         if (win.Camera) {
           cameraInstance = new win.Camera(videoRef.current, {
             onFrame: async () => {
-              if (videoRef.current && handsInstance) {
-                await handsInstance.send({ image: videoRef.current });
+              if (videoRef.current && handsInstance && !isProcessingFrameRef.current) {
+                isProcessingFrameRef.current = true;
+                try {
+                  await handsInstance.send({ image: videoRef.current });
+                } catch (e) {
+                  console.error("Frame processing error:", e);
+                } finally {
+                  isProcessingFrameRef.current = false;
+                }
               }
             },
-            width: 1280,
-            height: 720
+            width: 640,
+            height: 480
           });
           cameraInstance.start();
         }
@@ -149,7 +157,7 @@ export const TrainModel: React.FC<TrainModelProps> = ({ isDarkMode }) => {
         console.error("MediaPipe initialization error:", err);
       }
     } else {
-      navigator.mediaDevices?.getUserMedia({ video: true })
+      navigator.mediaDevices?.getUserMedia({ video: { width: 640, height: 480 } })
         .then((stream) => {
           if (videoRef.current) {
             videoRef.current.srcObject = stream;

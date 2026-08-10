@@ -99,6 +99,10 @@ const HandsScene: React.FC<Avatar3DProps> = ({ currentSign, isPlaying, speed }) 
   const leftJoints  = [[l0b,l0m,l0t],[l1b,l1m,l1t],[l2b,l2m,l2t],[l3b,l3m,l3t],[l4b,l4m,l4t]];
   const rightJoints = [[r0b,r0m,r0t],[r1b,r1m,r1t],[r2b,r2m,r2t],[r3b,r3m,r3t],[r4b,r4m,r4t]];
 
+  // Track sign changes for punch-in animation
+  const prevSign       = useRef<string>('');
+  const signChangeTime = useRef<number>(0);
+
   // ── Single unified useFrame — no ordering issues ──
   useFrame((state, delta) => {
     // Resolve target pose for this frame
@@ -123,28 +127,49 @@ const HandsScene: React.FC<Avatar3DProps> = ({ currentSign, isPlaying, speed }) 
     animHand(leftJoints,  leftPose);
     animHand(rightJoints, rightPose);
 
-    // Animate wrists (idle breathing + letter micro-movement)
-    const tt       = state.clock.elapsedTime * speed;
+    // ── Wrist animation — always running, visible motion ──
+    const tt       = state.clock.elapsedTime;
+    const ts       = tt * speed;
     const baseRotY = 0.6;
-    const signing  = isPlaying && currentSign !== ' ';
+
+    // Detect sign change → trigger a brief "present" lift
+    const currentLetter = (currentSign ?? '').toUpperCase();
+    if (currentLetter !== prevSign.current) {
+      prevSign.current = currentLetter;
+      signChangeTime.current = tt;
+    }
+    const timeSinceChange = tt - signChangeTime.current;
+    // Smooth punch-in: sharp rise then decay over ~0.6 s
+    const punchFactor = Math.max(0, Math.exp(-timeSinceChange * 6) * 0.35);
+
+    // Continuous idle waves
+    const breathY  =  Math.sin(ts * 0.9)  * 0.18;   // up/down ±0.18 units
+    const breathY2 =  Math.cos(ts * 0.9)  * 0.18;   // opposite phase for right hand
+    const swayX    =  Math.sin(ts * 0.55) * 0.12;   // gentle side sway ±0.12 units
+    const tiltX    =  Math.sin(ts * 1.3)  * 0.18;   // forward/back tilt ±~10°
+    const rollZ    =  Math.cos(ts * 1.0)  * 0.12;   // wrist roll ±~7°
+    const yawExtra =  Math.sin(ts * 0.7)  * 0.08;   // extra yaw wobble
 
     if (lWrist.current) {
-      lWrist.current.position.y = -0.5 + Math.sin(tt * 0.5) * 0.05;
+      lWrist.current.position.y = -0.5 + breathY + punchFactor;
+      lWrist.current.position.x = -1.5 + swayX;
       lWrist.current.rotation.set(
-        signing ? Math.sin(tt * 4) * 0.05 : 0,
-        baseRotY,
-        signing ? Math.cos(tt * 4) * 0.03 : 0,
+        tiltX,
+        baseRotY + yawExtra,
+        rollZ,
       );
     }
     if (rWrist.current) {
-      rWrist.current.position.y = -0.5 + Math.cos(tt * 0.5) * 0.05;
+      rWrist.current.position.y = -0.5 + breathY2 + punchFactor;
+      rWrist.current.position.x =  1.5 - swayX;
       rWrist.current.rotation.set(
-        signing ? Math.sin(tt * 4) * 0.05 : 0,
-        -baseRotY,
-        signing ? Math.cos(tt * 4) * 0.03 : 0,
+        -tiltX,
+        -baseRotY - yawExtra,
+        -rollZ,
       );
     }
   });
+
 
   return (
     <group>

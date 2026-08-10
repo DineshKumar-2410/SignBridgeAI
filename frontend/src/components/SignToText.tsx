@@ -23,12 +23,23 @@ export const SignToText: React.FC<SignToTextProps> = ({ selectedLanguage, isDark
   const [aiCorrected, setAiCorrected] = useState<string>('');
   const [isModelLoading, setIsModelLoading] = useState<boolean>(true);
   const [modelReloadKey, setModelReloadKey] = useState<number>(0);
+
+  // Performance & Model Controls
+  const [fastMode, setFastMode] = useState<boolean>(true); // modelComplexity: 0 (Fast Lite WASM) vs 1 (Full)
+  const [resolution, setResolution] = useState<{ width: number; height: number }>({ width: 640, height: 480 });
+  const [maxHands, setMaxHands] = useState<number>(1);
+  const [showSkeleton, setShowSkeleton] = useState<boolean>(true);
+  const [showPerfControls, setShowPerfControls] = useState<boolean>(false);
   
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const lastPrintedSignRef = useRef<string>('');
   const printTimeoutRef = useRef<any>(null);
   const latestLandmarksRef = useRef<any[] | null>(null);
+
+  const isMediaPipeActiveRef = useRef<boolean>(false);
+  const isProcessingFrameRef = useRef<boolean>(false);
+  const isPredictingRef = useRef<boolean>(false);
 
   // Auto-print recognized gesture to output sentence box when gesture is held
   useEffect(() => {
@@ -55,7 +66,7 @@ export const SignToText: React.FC<SignToTextProps> = ({ selectedLanguage, isDark
     };
   }, [currentGesture, autoAppend]);
 
-  // Initialize MediaPipe Hands & Webcam stream
+  // Initialize MediaPipe Hands & Webcam stream with optimized performance options
   useEffect(() => {
     let cameraInstance: any = null;
     let handsInstance: any = null;
@@ -72,10 +83,10 @@ export const SignToText: React.FC<SignToTextProps> = ({ selectedLanguage, isDark
           });
 
           handsInstance.setOptions({
-            maxNumHands: 2,
-            modelComplexity: 1,
-            minDetectionConfidence: 0.3,
-            minTrackingConfidence: 0.3
+            maxNumHands: maxHands,
+            modelComplexity: fastMode ? 0 : 1, // 0 = Lite (Fast WASM execution), 1 = Full
+            minDetectionConfidence: 0.35,
+            minTrackingConfidence: 0.35
           });
 
           handsInstance.onResults((results: any) => {
@@ -92,54 +103,59 @@ export const SignToText: React.FC<SignToTextProps> = ({ selectedLanguage, isDark
                 canvas.height = video.videoHeight;
               }
             } else {
-              canvas.width = 1280;
-              canvas.height = 720;
+              canvas.width = resolution.width;
+              canvas.height = resolution.height;
             }
 
             ctx.save();
             ctx.clearRect(0, 0, canvas.width, canvas.height);
 
             if (results.multiHandLandmarks && results.multiHandLandmarks.length > 0) {
-              setIsMediaPipeActive(true);
+              if (!isMediaPipeActiveRef.current) {
+                isMediaPipeActiveRef.current = true;
+                setIsMediaPipeActive(true);
+              }
               latestLandmarksRef.current = results.multiHandLandmarks;
               
-              const HAND_CONNECTIONS = win.HAND_CONNECTIONS || [
-                [0, 1], [1, 2], [2, 3], [3, 4],
-                [0, 5], [5, 6], [6, 7], [7, 8],
-                [5, 9], [9, 10], [10, 11], [11, 12],
-                [9, 13], [13, 14], [14, 15], [15, 16],
-                [13, 17], [17, 18], [18, 19], [19, 20], [0, 17]
-              ];
+              if (showSkeleton) {
+                const HAND_CONNECTIONS = win.HAND_CONNECTIONS || [
+                  [0, 1], [1, 2], [2, 3], [3, 4],
+                  [0, 5], [5, 6], [6, 7], [7, 8],
+                  [5, 9], [9, 10], [10, 11], [11, 12],
+                  [9, 13], [13, 14], [14, 15], [15, 16],
+                  [13, 17], [17, 18], [18, 19], [19, 20], [0, 17]
+                ];
 
-              for (const landmarks of results.multiHandLandmarks) {
-                ctx.lineWidth = 4;
+                ctx.lineWidth = 3;
                 ctx.strokeStyle = '#00F0FF';
-                for (const [startIdx, endIdx] of HAND_CONNECTIONS) {
-                  const p1 = landmarks[startIdx];
-                  const p2 = landmarks[endIdx];
-                  if (p1 && p2) {
-                    ctx.beginPath();
-                    ctx.moveTo(p1.x * canvas.width, p1.y * canvas.height);
-                    ctx.lineTo(p2.x * canvas.width, p2.y * canvas.height);
-                    ctx.stroke();
+                for (const landmarks of results.multiHandLandmarks) {
+                  for (const [startIdx, endIdx] of HAND_CONNECTIONS) {
+                    const p1 = landmarks[startIdx];
+                    const p2 = landmarks[endIdx];
+                    if (p1 && p2) {
+                      ctx.beginPath();
+                      ctx.moveTo(p1.x * canvas.width, p1.y * canvas.height);
+                      ctx.lineTo(p2.x * canvas.width, p2.y * canvas.height);
+                      ctx.stroke();
+                    }
                   }
-                }
 
-                ctx.fillStyle = '#FFE600';
-                for (const lm of landmarks) {
-                  ctx.beginPath();
-                  ctx.arc(lm.x * canvas.width, lm.y * canvas.height, 6, 0, 2 * Math.PI);
-                  ctx.fill();
-                  ctx.lineWidth = 1.5;
-                  ctx.strokeStyle = '#000000';
-                  ctx.stroke();
+                  ctx.fillStyle = '#FFE600';
+                  for (const lm of landmarks) {
+                    ctx.beginPath();
+                    ctx.arc(lm.x * canvas.width, lm.y * canvas.height, 4, 0, 2 * Math.PI);
+                    ctx.fill();
+                  }
                 }
               }
             } else {
-              setIsMediaPipeActive(false);
+              if (isMediaPipeActiveRef.current) {
+                isMediaPipeActiveRef.current = false;
+                setIsMediaPipeActive(false);
+                setCurrentGesture('');
+                setConfidence(0);
+              }
               latestLandmarksRef.current = null;
-              setCurrentGesture('');
-              setConfidence(0);
             }
             ctx.restore();
           });
@@ -147,12 +163,20 @@ export const SignToText: React.FC<SignToTextProps> = ({ selectedLanguage, isDark
           if (win.Camera) {
             cameraInstance = new win.Camera(videoRef.current, {
               onFrame: async () => {
-                if (videoRef.current && handsInstance) {
-                  await handsInstance.send({ image: videoRef.current });
+                // Frame-skipping lock: skip frames if previous WASM frame is still processing
+                if (videoRef.current && handsInstance && !isProcessingFrameRef.current) {
+                  isProcessingFrameRef.current = true;
+                  try {
+                    await handsInstance.send({ image: videoRef.current });
+                  } catch (e) {
+                    console.error("MediaPipe frame send error:", e);
+                  } finally {
+                    isProcessingFrameRef.current = false;
+                  }
                 }
               },
-              width: 1280,
-              height: 720
+              width: resolution.width,
+              height: resolution.height
             });
             cameraInstance.start();
           }
@@ -160,7 +184,7 @@ export const SignToText: React.FC<SignToTextProps> = ({ selectedLanguage, isDark
           console.error("MediaPipe initialization error:", err);
         }
       } else {
-        navigator.mediaDevices?.getUserMedia({ video: true })
+        navigator.mediaDevices?.getUserMedia({ video: { width: resolution.width, height: resolution.height } })
           .then((stream) => {
             if (videoRef.current) {
               videoRef.current.srcObject = stream;
@@ -181,9 +205,9 @@ export const SignToText: React.FC<SignToTextProps> = ({ selectedLanguage, isDark
         try { handsInstance.close(); } catch {}
       }
     };
-  }, [isCameraActive, useWebcam, modelReloadKey]);
+  }, [isCameraActive, useWebcam, modelReloadKey, fastMode, resolution, maxHands, showSkeleton]);
 
-  // Polling interval to send landmarks to backend for prediction
+  // Fast Polling interval (250ms) to send landmarks to backend for prediction
   useEffect(() => {
     if (!isCameraActive || (!useWebcam && !latestLandmarksRef.current)) return;
 
@@ -192,6 +216,13 @@ export const SignToText: React.FC<SignToTextProps> = ({ selectedLanguage, isDark
         // Hand is out of frame, do not send to backend
         return;
       }
+
+      if (isPredictingRef.current) {
+        // Avoid queueing multiple fetch calls if network/backend is busy
+        return;
+      }
+
+      isPredictingRef.current = true;
 
       let bodyData: any = { image_base64: 'frame_placeholder' };
       
@@ -231,8 +262,11 @@ export const SignToText: React.FC<SignToTextProps> = ({ selectedLanguage, isDark
             setCurrentGesture(randomSign);
             setConfidence(parseFloat(randomConf));
           }
+        })
+        .finally(() => {
+          isPredictingRef.current = false;
         });
-    }, 1500); // Poll every 1.5s
+    }, 250); // Polling every 250ms for instant real-time predictions
 
     return () => clearInterval(interval);
   }, [isCameraActive, useWebcam]);
@@ -318,7 +352,7 @@ export const SignToText: React.FC<SignToTextProps> = ({ selectedLanguage, isDark
         }`}>
           
           {/* Header Bar */}
-          <div className="px-4 py-3 border-b border-slate-800 flex items-center justify-between bg-slate-900/50">
+          <div className="px-4 py-3 border-b border-slate-800 flex flex-wrap items-center justify-between gap-2 bg-slate-900/50">
             <div className="flex items-center space-x-2">
               <span className={`w-3 h-3 rounded-full ${isCameraActive ? 'bg-emerald-400 animate-pulse' : 'bg-slate-500'}`} />
               <span className="text-sm font-semibold text-slate-200">
@@ -327,6 +361,28 @@ export const SignToText: React.FC<SignToTextProps> = ({ selectedLanguage, isDark
             </div>
             
             <div className="flex items-center space-x-2">
+              <button
+                onClick={() => setFastMode(!fastMode)}
+                className={`px-2.5 py-1 rounded-lg text-xs font-bold border transition-all ${
+                  fastMode
+                    ? 'bg-amber-500/20 text-amber-300 border-amber-500/40 hover:bg-amber-500/30'
+                    : 'bg-indigo-500/20 text-indigo-300 border border-indigo-500/40 hover:bg-indigo-500/30'
+                }`}
+                title="Toggle MediaPipe WASM Lite model complexity (0 = Fast, 1 = High Accuracy)"
+              >
+                {fastMode ? '⚡ Fast Mode (Lite)' : '🎯 High Accuracy'}
+              </button>
+
+              <button
+                onClick={() => setShowPerfControls(!showPerfControls)}
+                className={`px-2.5 py-1 rounded-lg text-xs font-semibold border transition-all ${
+                  showPerfControls ? 'bg-slate-700 text-white border-slate-600' : 'bg-slate-800 text-slate-400 border-slate-700 hover:bg-slate-700'
+                }`}
+                title="Performance & Camera Settings"
+              >
+                ⚙️ Tune FPS
+              </button>
+
               <button
                 onClick={() => setAutoAppend(!autoAppend)}
                 className={`px-2.5 py-1 rounded-lg text-xs font-semibold border transition-all ${
@@ -347,7 +403,7 @@ export const SignToText: React.FC<SignToTextProps> = ({ selectedLanguage, isDark
                     : 'bg-slate-800 hover:bg-slate-700 text-slate-300 border-slate-700'
                 }`}
               >
-                {useWebcam ? '📹 Real Camera' : '🤖 AI Simulator'}
+                {useWebcam ? '📹 Camera' : '🤖 Simulator'}
               </button>
 
               <button
@@ -358,10 +414,57 @@ export const SignToText: React.FC<SignToTextProps> = ({ selectedLanguage, isDark
                     : 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 hover:bg-emerald-500/30'
                 }`}
               >
-                {isCameraActive ? 'Stop Camera' : 'Start Camera'}
+                {isCameraActive ? 'Stop' : 'Start'}
               </button>
             </div>
           </div>
+
+          {/* Performance Controls Toolbar */}
+          {showPerfControls && (
+            <div className="px-4 py-2.5 bg-slate-950/80 border-b border-slate-800 flex flex-wrap items-center justify-between text-xs gap-3 text-slate-300">
+              <div className="flex items-center space-x-2">
+                <span className="font-semibold text-slate-400">Resolution:</span>
+                <button
+                  onClick={() => setResolution({ width: 640, height: 480 })}
+                  className={`px-2 py-0.5 rounded border ${resolution.width === 640 ? 'bg-emerald-600 border-emerald-500 text-white font-bold' : 'bg-slate-800 border-slate-700 text-slate-400'}`}
+                >
+                  640x480 (Recommended Fast)
+                </button>
+                <button
+                  onClick={() => setResolution({ width: 1280, height: 720 })}
+                  className={`px-2 py-0.5 rounded border ${resolution.width === 1280 ? 'bg-emerald-600 border-emerald-500 text-white font-bold' : 'bg-slate-800 border-slate-700 text-slate-400'}`}
+                >
+                  1280x720 (High Res)
+                </button>
+              </div>
+
+              <div className="flex items-center space-x-2">
+                <span className="font-semibold text-slate-400">Max Hands:</span>
+                <button
+                  onClick={() => setMaxHands(1)}
+                  className={`px-2 py-0.5 rounded border ${maxHands === 1 ? 'bg-indigo-600 border-indigo-500 text-white font-bold' : 'bg-slate-800 border-slate-700 text-slate-400'}`}
+                >
+                  1 Hand (Faster)
+                </button>
+                <button
+                  onClick={() => setMaxHands(2)}
+                  className={`px-2 py-0.5 rounded border ${maxHands === 2 ? 'bg-indigo-600 border-indigo-500 text-white font-bold' : 'bg-slate-800 border-slate-700 text-slate-400'}`}
+                >
+                  2 Hands
+                </button>
+              </div>
+
+              <div className="flex items-center space-x-2">
+                <span className="font-semibold text-slate-400">Landmarks Overlay:</span>
+                <button
+                  onClick={() => setShowSkeleton(!showSkeleton)}
+                  className={`px-2 py-0.5 rounded border ${showSkeleton ? 'bg-teal-600 border-teal-500 text-white font-bold' : 'bg-slate-800 border-slate-700 text-slate-400'}`}
+                >
+                  {showSkeleton ? 'Visible' : 'Hidden'}
+                </button>
+              </div>
+            </div>
+          )}
 
           {/* Camera Viewport Area */}
           <div className="relative aspect-video bg-slate-950 flex items-center justify-center overflow-hidden">
