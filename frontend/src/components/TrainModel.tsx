@@ -52,7 +52,7 @@ export const TrainModel: React.FC<TrainModelProps> = ({ isDarkMode }) => {
         });
 
         handsInstance.setOptions({
-          maxNumHands: 1,
+          maxNumHands: 2,
           modelComplexity: 0, // Lite mode for fast performance
           minDetectionConfidence: 0.35,
           minTrackingConfidence: 0.35

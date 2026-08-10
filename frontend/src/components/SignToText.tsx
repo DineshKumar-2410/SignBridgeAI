@@ -28,7 +28,7 @@ export const SignToText: React.FC<SignToTextProps> = ({ selectedLanguage, isDark
   // Performance & Model Controls
   const [fastMode, setFastMode] = useState<boolean>(true); // modelComplexity: 0 (Fast Lite WASM) vs 1 (Full)
   const [resolution, setResolution] = useState<{ width: number; height: number }>({ width: 640, height: 480 });
-  const [maxHands, setMaxHands] = useState<number>(1);
+  const [maxHands, setMaxHands] = useState<number>(2);
   const [showSkeleton, setShowSkeleton] = useState<boolean>(true);
   const [showPerfControls, setShowPerfControls] = useState<boolean>(false);
   
