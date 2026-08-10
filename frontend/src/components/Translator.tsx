@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { INDIAN_LANGUAGES } from './Navbar';
+import { getApiUrl } from '../utils/api';
 
 interface TranslatorProps {
   isDarkMode: boolean;
@@ -20,7 +21,8 @@ export const Translator: React.FC<TranslatorProps> = ({ isDarkMode }) => {
     setError(null);
     
     try {
-      const response = await fetch('http://localhost:8000/api/translate/', {
+      const API_URL = getApiUrl();
+      const response = await fetch(`${API_URL}/api/translate/`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

@@ -7,6 +7,7 @@ import { Translator } from './components/Translator';
 import { LearnISL } from './components/LearnISL';
 import { History } from './components/History';
 import { TrainModel } from './components/TrainModel';
+import { getApiUrl } from './utils/api';
 
 export const App: React.FC = () => {
   const [activeTab, setActiveTab] = useState<ActiveTab>('sign-to-text');
@@ -36,14 +37,21 @@ export const App: React.FC = () => {
     }
   ]);
 
-  // Check backend health
+  // Check backend health periodically (every 5 seconds)
   useEffect(() => {
-    fetch('http://localhost:8000/health')
-      .then((res) => res.json())
-      .then((data) => {
-        if (data.status === 'healthy') setApiConnected(true);
-      })
-      .catch(() => setApiConnected(false));
+    const checkHealth = () => {
+      const API_URL = getApiUrl();
+      fetch(`${API_URL}/health`)
+        .then((res) => res.json())
+        .then((data) => {
+          setApiConnected(data.status === 'healthy');
+        })
+        .catch(() => setApiConnected(false));
+    };
+
+    checkHealth();
+    const interval = setInterval(checkHealth, 5000);
+    return () => clearInterval(interval);
   }, []);
 
   const handleAddHistory = (item: HistoryItem) => {

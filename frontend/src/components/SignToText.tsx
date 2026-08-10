@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { HistoryItem } from '../types';
+import { getApiUrl } from '../utils/api';
 
 interface SignToTextProps {
   selectedLanguage: string;
@@ -239,7 +240,7 @@ export const SignToText: React.FC<SignToTextProps> = ({ selectedLanguage, isDark
         bodyData = { landmarks: flatLandmarks };
       }
 
-      const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+      const API_URL = getApiUrl();
       fetch(`${API_URL}/api/ml/isl/isl-recognize`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -276,7 +277,7 @@ export const SignToText: React.FC<SignToTextProps> = ({ selectedLanguage, isDark
       setAiCorrected('');
       return;
     }
-    const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+    const API_URL = getApiUrl();
     fetch(`${API_URL}/api/ml/isl/grammar-correct`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
